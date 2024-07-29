@@ -1,0 +1,68 @@
+{
+  "name": "ExampleApp",
+  "short_name": "ExampleApp",
+  "theme_color": "#067ede",
+  "background_color": "#2196f3",
+  "display": "minimal-ui",
+  "scope": "/",
+  "start_url": "/?launch=app",
+  "icons": [
+    {
+      "src": "icons/icon_16x16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any monochrome"
+    },
+    {
+      "src": "icons/icon_32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any monochrome"
+    },
+    {
+      "src": "icons/icon_48x48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any monochrome"
+    },
+    {
+      "src": "icons/icon_128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any monochrome"
+    },
+    {
+      "src": "icons/icon_144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any monochrome"
+    },
+    {
+      "src": "icons/icon_192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any monochrome"
+    },
+    {
+      "src": "icons/icon_512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any monochrome maskable"
+    }
+  ],
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "Activity",
+      "url": "/activity",
+      "icons": [
+        {
+          "src": "icons/icon_activity_512x512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any monochrome"
+        }
+      ]
+    }
+  ]
+}
