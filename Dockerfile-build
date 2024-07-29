@@ -1,0 +1,14 @@
+FROM golang:1.22.5-alpine3.20
+ARG golang_version=1.22.5
+ARG build_bin=ezhttp.alpine.bin
+ARG build_date
+ARG build_git_hash
+
+WORKDIR /usr/src/app
+COPY . .
+
+RUN go mod tidy && \
+	go build -o "./${build_bin}" \
+	-ldflags="-s -w -X main.BuildDate=${build_date} -X main.BuildGoVersion=${golang_version} -X main.BuildGitHash=${build_git_hash}" \
+	./main.go && \
+	"./${build_bin}" --version;
