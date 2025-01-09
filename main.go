@@ -34,7 +34,7 @@ import (
 // TODO: Minification for CSS/JS (had issues)
 
 // Build Information
-const BuildVersion string = "0.0.1"
+const BuildVersion string = "0.0.2"
 
 var BuildDate string
 var BuildGoVersion string
