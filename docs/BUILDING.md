@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Golang v1.22.x [Website](https://go.dev/doc/install)
+- Golang v1.23.x [Website](https://go.dev/doc/install)
 - Podman [Website](https://podman-desktop.io/downloads)
 
 **NOTE:** If you want to use Docker instead, switch `podman` commands to `docker`
