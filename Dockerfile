@@ -1,12 +1,14 @@
 FROM alpine:3.21.2
 
+ARG ARCH="none"
+
 RUN apk add --no-cache curl && \
 	addgroup -S appgroup && \
 	adduser -S appuser -G appgroup --home "/usr/src/app" --no-create-home
 
 WORKDIR /usr/src/app
 
-COPY ./bin/ezhttp.alpine.bin ./ezhttp
+COPY ./bin/ezhttp.alpine-${ARCH}.bin ./ezhttp
 RUN chmod +x ./ezhttp
 COPY ./config.json .
 COPY ./public ./public
