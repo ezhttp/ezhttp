@@ -1,4 +1,4 @@
-FROM ezhttp:0.0.2
+FROM ezhttp:0.0.3
 
 USER root
 RUN rm -r public && rm config.json
