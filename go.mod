@@ -1,6 +1,6 @@
 module go.ezhttp.org/ezhttp/v2
 
-go 1.23.5
+go 1.24.2
 
 require (
 	dario.cat/mergo v1.0.1
