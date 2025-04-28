@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "listen_addr": "0.0.0.0",
+  "listen_port": "8080",
+  "banner": ["<!--", "EDITED Banner", "-->"],
+  "csp": {
+    "connect-src": [
+      "'self'",
+      "https://fonts.gstatic.com",
+      "https://cdn.jsdelivr.net"
+    ],
+    "script-src": ["'self'", "'nonce-RANDOM'", "https://cdn.jsdelivr.net"],
+    "style-src": [
+      "'self'",
+      "'nonce-RANDOM'",
+      "https://fonts.googleapis.com",
+      "https://cdn.jsdelivr.net"
+    ]
+  }
+}

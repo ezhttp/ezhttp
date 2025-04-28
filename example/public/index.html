@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Content Security Policy Example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="This is the description" />
+    <meta name="theme-color" content="#067EDE" />
+    <link rel="manifest" href="v20240728/manifest.webmanifest" />
+    <link rel="icon" href="v20240728/icons/favicon.ico" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="v20240728/css/styles.css" />
+    <style nonce="NONCEHERE">
+      html,
+      body {
+        background: #72bd72;
+        color: black;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Content Security Policy Example</h1>
+    <h2>GENERATED NONCE: NONCEHERE</h2>
+    <h3 id="dynamic-inline">WAITING FOR JAVASCRIPT TO LOAD AND UPDATE...</h3>
+    <img
+      src="media/2024/07/28/example.jpg"
+      alt="Example Image"
+      width="1200"
+      height="800"
+    />
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq"
+      crossorigin="anonymous"
+    ></script>
+    <script src="v20240728/js/script.js"></script>
+    <script nonce="NONCEHERE">
+      console.log("INLINE: EXECUTED");
+      var el = document.querySelector("#dynamic-inline");
+      el.textContent = "NONCE INLINE JAVASCRIPT WORKING!!!";
+    </script>
+  </body>
+</html>
