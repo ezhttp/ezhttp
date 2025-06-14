@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -46,6 +47,100 @@ var config DataConfig
 var compiledCsp string = ""
 var cachedIndexString []string = []string{}
 var minifier *minify.M
+
+// =========================
+// === Secure FileSystem ===
+// =========================
+
+// allowedExtensions defines which file extensions can be served
+var allowedExtensions = map[string]bool{
+	".html":        true,
+	".htm":         true,
+	".css":         true,
+	".js":          true,
+	".json":        true,
+	".webmanifest": true,
+	".txt":         true,
+	".ico":         true,
+	".jpg":         true,
+	".jpeg":        true,
+	".png":         true,
+	".gif":         true,
+	".svg":         true,
+	".webp":        true,
+	".woff":        true,
+	".woff2":       true,
+	".ttf":         true,
+	".eot":         true,
+	".otf":         true,
+	".mp4":         true,
+	".webm":        true,
+	".weba":        true,
+	".ogg":         true,
+	".mp3":         true,
+	".wav":         true,
+	".pdf":         true,
+	".map":         true,
+}
+
+// secureFileSystem implements http.FileSystem with additional security checks
+type secureFileSystem struct {
+	fs http.FileSystem
+}
+
+// Open implements http.FileSystem with security validations
+func (sfs *secureFileSystem) Open(name string) (http.File, error) {
+	// Clean the path
+	cleanPath := filepath.Clean("/" + name)
+
+	// Prevent directory traversal
+	if strings.Contains(cleanPath, "..") {
+		return nil, os.ErrNotExist
+	}
+
+	// Open the file
+	file, err := sfs.fs.Open(cleanPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get file info
+	stat, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+
+	// Prevent directory listings
+	if stat.IsDir() {
+		// Check if index.html exists in the directory
+		indexPath := filepath.Join(cleanPath, "index.html")
+		if indexFile, err := sfs.fs.Open(indexPath); err == nil {
+			indexFile.Close()
+			file.Close()
+			// Redirect to index.html
+			return sfs.fs.Open(indexPath)
+		}
+		// No index.html, deny directory listing
+		file.Close()
+		return nil, os.ErrNotExist
+	}
+
+	// Check if it's a symlink (additional security)
+	if stat.Mode()&os.ModeSymlink != 0 {
+		file.Close()
+		return nil, os.ErrPermission
+	}
+
+	// Validate file extension
+	ext := filepath.Ext(cleanPath)
+	if ext != "" && !allowedExtensions[strings.ToLower(ext)] {
+		file.Close()
+		return nil, os.ErrPermission
+	}
+
+	return file, nil
+}
 
 // =========================
 // ======== Config =========
@@ -329,20 +424,45 @@ func RandStringCharacters(count int) string {
 }
 
 func checkFilePath(path string) (bool, string) {
-	// FileStat
-	exists := false
-	_, errStatPath := os.Stat("./public" + path)
-	if errStatPath == nil {
-		exists = true
-	} else {
-		// Add HTML extension suffix
-		_, errStatHtml := os.Stat("./public" + path + ".html")
-		if errStatHtml == nil {
-			exists = true
-			path = path + ".html"
-		}
+	// Sanitize the path first
+	cleanPath := filepath.Clean(path)
+
+	// Ensure the path doesn't escape the public directory
+	if strings.Contains(cleanPath, "..") {
+		return false, ""
 	}
-	return exists, path
+
+	// Construct the full path
+	basePath, err := filepath.Abs("./public")
+	if err != nil {
+		return false, ""
+	}
+
+	fullPath := filepath.Join(basePath, cleanPath)
+
+	// Verify the path is still within public directory
+	if !strings.HasPrefix(fullPath, basePath) {
+		return false, ""
+	}
+
+	// Check if file exists
+	fileInfo, err := os.Stat(fullPath)
+	if err == nil {
+		// Ensure it's a regular file, not a directory or symlink
+		if fileInfo.Mode().IsRegular() {
+			return true, cleanPath
+		}
+		return false, ""
+	}
+
+	// Try with .html extension
+	htmlPath := fullPath + ".html"
+	fileInfo, err = os.Stat(htmlPath)
+	if err == nil && fileInfo.Mode().IsRegular() {
+		return true, cleanPath + ".html"
+	}
+
+	return false, ""
 }
 
 func mwNonce(minhttpfs http.Handler) http.HandlerFunc {
@@ -352,9 +472,11 @@ func mwNonce(minhttpfs http.Handler) http.HandlerFunc {
 		path := r.URL.Path
 		//log.Println("PATH:", path)
 
-		// Check for dotfiles
-		// Double-dot (..) is handled before we even get control
-		if HasDotPrefix(path) {
+		// Sanitize path
+		cleanPath := filepath.Clean(path)
+
+		// Check for dotfiles and path traversal attempts
+		if HasDotPrefix(cleanPath) || strings.Contains(cleanPath, "..") {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusForbidden)
 			io.WriteString(w, "Forbidden")
@@ -535,11 +657,15 @@ func main() {
 	// minifier.AddFuncRegexp(regexp.MustCompile("^(application|text)/(x-)?(java|ecma)script$"), js.Minify)
 	// minifier.AddFuncRegexp(regexp.MustCompile("^application/json$"), json.Minify)
 
-	// Static File Server
-	httpfs := http.FileServer(http.Dir("./public"))
-	// //http.Handle("/static/", http.StripPrefix("/public/", httpfs))
-	// // strings.TrimRight("/statics/", "/")
-	// http.Handle("/", mwNonce(httpfs))
+	// Create secure file server with custom FileSystem
+	publicDir, err := filepath.Abs("./public")
+	if err != nil {
+		log.Fatal("Failed to resolve public directory:", err)
+	}
+
+	// Use a custom FileSystem that prevents directory listings and symlink attacks
+	secureFS := &secureFileSystem{http.Dir(publicDir)}
+	httpfs := http.FileServer(secureFS)
 
 	log.Printf("[SERVER] Listening on %s:%s...\n", config.ListenAddr, config.ListenPort)
 	httpServer := &http.Server{
@@ -551,7 +677,7 @@ func main() {
 		//TLSConfig:         tlsConfig,
 		Handler: mwNonce(httpfs),
 	}
-	err := httpServer.ListenAndServe()
+	err = httpServer.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
