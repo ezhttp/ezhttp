@@ -139,7 +139,7 @@ func (csp *DataConfigCsp) Compile() string {
 func ConfigDefault() DataConfig {
 	return DataConfig{
 		Version:          1,
-		ListenAddr:       "0.0.0.0",
+		ListenAddr:       "127.0.0.1",
 		ListenPort:       "8080",
 		NoncePlaceholder: "NONCEHERE",
 		Banner: []string{
