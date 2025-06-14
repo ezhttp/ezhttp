@@ -1,4 +1,4 @@
-module go.ezhttp.org/ezhttp/v2
+module github.com/ezhttp/ezhttp
 
 go 1.24.4
 
