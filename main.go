@@ -87,10 +87,10 @@ func main() {
 	log.Printf("[SERVER] Listening on %s:%s...\n", cfg.ListenAddr, cfg.ListenPort)
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr + ":" + cfg.ListenPort,
-		ReadTimeout:       1 * time.Second,
-		WriteTimeout:      1 * time.Second,
-		IdleTimeout:       10 * time.Second,
-		ReadHeaderTimeout: 2 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
 		//TLSConfig:         tlsConfig,
 		Handler: server.MwNonce(httpfs, compiledCsp, cachedIndexString, minifier, cfg.Banner),
 	}
