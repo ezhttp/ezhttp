@@ -13,7 +13,7 @@ func RandStringBytes(n int) string {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
-		log.Println("error:", err)
+		log.Println("error generating random bytes")
 		return ""
 	}
 	return base64.URLEncoding.EncodeToString(b)
@@ -35,7 +35,7 @@ func RandStringCharacters(count int) string {
 		randomBytes := make([]byte, count-i)
 		_, err := rand.Read(randomBytes)
 		if err != nil {
-			log.Println("error generating random string:", err)
+			log.Println("error generating random string")
 			return ""
 		}
 

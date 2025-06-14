@@ -152,14 +152,14 @@ func ConfigDefault() DataConfig {
 func ConfigReadFromFile(filename string) DataConfig {
 	filebytes, err := os.ReadFile(filename)
 	if err != nil {
-		log.Fatal("[CONFIG] Error when opening config file: ", err)
+		log.Fatal("[CONFIG] Error when opening config file")
 		return DataConfig{}
 	}
 
 	var payload DataConfig
 	err = json.Unmarshal(filebytes, &payload)
 	if err != nil {
-		log.Fatal("[CONFIG] Error in JSON File: ", err)
+		log.Fatal("[CONFIG] Error in JSON file")
 		return DataConfig{}
 	}
 

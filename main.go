@@ -74,7 +74,7 @@ func main() {
 	// Create secure file server with custom FileSystem
 	publicDir, err := filepath.Abs("./public")
 	if err != nil {
-		log.Fatal("Failed to resolve public directory:", err)
+		log.Fatal("Failed to resolve public directory")
 	}
 
 	// Use a custom FileSystem that prevents directory listings and symlink attacks
@@ -96,6 +96,6 @@ func main() {
 	}
 	err = httpServer.ListenAndServe()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Server failed to start")
 	}
 }
