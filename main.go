@@ -413,13 +413,39 @@ func RandStringBytes(n int) string {
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
 func RandStringCharacters(count int) string {
-	setlength := len(charset)
+	// Use crypto/rand for secure random generation
 	b := make([]byte, count)
-	// Load random bytes (1 * b length)
-	rand.Read(b)
-	for i := range b {
-		b[i] = charset[int(b[i])%setlength]
+
+	// We need to avoid "modulo bias"
+	// Our charset above (A-Z, a-z, 0-9) only has 62 characters
+	// 62 does not evenly "fit" into a byte with value 0-255 (62 * 4 = 248 < 256)
+	// So we use "rejection sampling" to chop off the extra range and
+	// ensure each character has the exact same chance of appearing
+	charsetLen := len(charset)
+	maxValid := 256 - (256 % charsetLen)
+
+	for i := 0; i < count; {
+		// Read random bytes
+		randomBytes := make([]byte, count-i)
+		_, err := rand.Read(randomBytes)
+		if err != nil {
+			log.Println("error generating random string:", err)
+			return ""
+		}
+
+		// Rejection sampling. If the byte value is greater
+		// than our character set multiple, reject and regenerate
+		for _, randomByte := range randomBytes {
+			if int(randomByte) < maxValid {
+				b[i] = charset[int(randomByte)%charsetLen]
+				i++
+				if i >= count {
+					break
+				}
+			}
+		}
 	}
+
 	return string(b)
 }
 
@@ -521,8 +547,16 @@ func mwNonce(minhttpfs http.Handler) http.HandlerFunc {
 			// Check for possible 404
 			// Allow setting known paths
 
-			// Generate Nonce
+			// Generate Nonce or Fail
 			nonce := RandStringCharacters(32)
+			if nonce == "" {
+				// Fail if the nonce generated incorrectly
+				log.Println("[SECURITY] Failed to generate secure nonce")
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				w.WriteHeader(http.StatusInternalServerError)
+				io.WriteString(w, "Internal Server Error")
+				return
+			}
 
 			// Write Response
 			//_, _ = w.Write([]byte("BYTE"))
