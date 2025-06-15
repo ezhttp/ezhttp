@@ -194,5 +194,25 @@ func ConfigLoad() DataConfig {
 		c.ListenPort = envPort
 	}
 
+	// Validate configuration
+	if err := ValidateConfig(&c); err != nil {
+		log.Fatal("[CONFIG] Validation failed: ", err)
+	}
+
+	// Log security warnings
+	if c.ListenAddr == "0.0.0.0" {
+		log.Println("[CONFIG] WARNING: Server will listen on all network interfaces")
+	}
+
+	// Check for unsafe CSP directives
+	for _, scriptSrc := range c.Csp.ScriptSrc {
+		if scriptSrc == "'unsafe-inline'" {
+			log.Println("[CONFIG] WARNING: 'unsafe-inline' in script-src reduces XSS protection")
+		}
+		if scriptSrc == "'unsafe-eval'" {
+			log.Println("[CONFIG] WARNING: 'unsafe-eval' in script-src allows dynamic code execution")
+		}
+	}
+
 	return c
 }
