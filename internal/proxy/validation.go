@@ -3,6 +3,8 @@ package proxy
 import (
 	"io"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/ezhttp/ezhttp/internal/logger"
@@ -62,8 +64,36 @@ func RequestValidationMiddleware(allowedHost string, maxRequestSize int64) func(
 	}
 }
 
-// Checks for common path traversal attempts
+// Checks for common path traversal attempts using multiple validation methods
 func containsPathTraversal(path string) bool {
+	// First, decode any URL encoding multiple times to catch double-encoding
+	decodedPath := path
+	for i := 0; i < 3; i++ {
+		decoded, err := url.QueryUnescape(decodedPath)
+		if err != nil || decoded == decodedPath {
+			break
+		}
+		decodedPath = decoded
+	}
+
+	// Clean the path
+	cleanPath := filepath.Clean("/" + decodedPath)
+
+	// Check if the cleaned path tries to escape the root
+	if !strings.HasPrefix(cleanPath, "/") {
+		return true
+	}
+
+	// Use filepath.Rel to check if path stays within bounds
+	// Convert to a simulated absolute path for checking
+	basePath := "/tmp/base"
+	targetPath := filepath.Join(basePath, cleanPath)
+	relPath, err := filepath.Rel(basePath, targetPath)
+	if err != nil || strings.HasPrefix(relPath, "..") || filepath.IsAbs(relPath) {
+		return true
+	}
+
+	// Additional pattern matching for various encoding attempts
 	traversalPatterns := []string{
 		"..",
 		"..\\",
@@ -77,9 +107,11 @@ func containsPathTraversal(path string) bool {
 		"..%255c",
 		"%c0%ae",
 		"%c1%9c",
+		"\\x2e\\x2e",
+		"0x2e0x2e",
 	}
 
-	lowerPath := strings.ToLower(path)
+	lowerPath := strings.ToLower(decodedPath)
 	for _, pattern := range traversalPatterns {
 		if strings.Contains(lowerPath, pattern) {
 			return true

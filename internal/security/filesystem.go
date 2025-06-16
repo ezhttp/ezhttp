@@ -40,7 +40,8 @@ var AllowedExtensions = map[string]bool{
 
 // SecureFileSystem implements http.FileSystem with additional security checks
 type SecureFileSystem struct {
-	Fs http.FileSystem
+	Fs      http.FileSystem
+	BaseDir string // Base directory for relative path validation
 }
 
 // Open implements http.FileSystem with security validations
@@ -48,9 +49,20 @@ func (sfs *SecureFileSystem) Open(name string) (http.File, error) {
 	// Clean the path
 	cleanPath := filepath.Clean("/" + name)
 
-	// Prevent directory traversal
-	if strings.Contains(cleanPath, "..") {
-		return nil, os.ErrNotExist
+	// More robust path traversal prevention using filepath.Rel
+	// Ensure the cleaned path is within the base directory
+	if sfs.BaseDir != "" {
+		// Convert to absolute path for comparison
+		absPath := filepath.Join(sfs.BaseDir, cleanPath)
+		relPath, err := filepath.Rel(sfs.BaseDir, absPath)
+		if err != nil || strings.HasPrefix(relPath, "..") || filepath.IsAbs(relPath) {
+			return nil, os.ErrNotExist
+		}
+	} else {
+		// Fallback to basic check if BaseDir not set
+		if strings.Contains(cleanPath, "..") {
+			return nil, os.ErrNotExist
+		}
 	}
 
 	// Open the file

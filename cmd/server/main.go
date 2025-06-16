@@ -82,14 +82,22 @@ func main() {
 	}
 
 	// Use a custom FileSystem that prevents directory listings and symlink attacks
-	secureFS := &security.SecureFileSystem{Fs: http.Dir(publicDir)}
+	secureFS := &security.SecureFileSystem{
+		Fs:      http.Dir(publicDir),
+		BaseDir: publicDir,
+	}
 	httpfs := http.FileServer(secureFS)
-	// //http.Handle("/static/", http.StripPrefix("/public/", httpfs))
-	// // strings.TrimRight("/statics/", "/")
-	// http.Handle("/", mwNonce(httpfs))
+
+	// Create file existence cache with 5-minute TTL
+	fileCache, err := server.NewFileExistenceCache(publicDir, 5*time.Minute)
+	if err != nil {
+		logger.Fatal("Failed to create file cache", "error", err)
+	}
+	// Pre-warm cache with common paths
+	fileCache.PrewarmCommonPaths()
 
 	// Create handler chain
-	var handler http.Handler = server.MwNonce(httpfs, compiledCsp, cachedIndexString, minifier, cfg.Banner)
+	var handler http.Handler = server.MwNonce(httpfs, compiledCsp, cachedIndexString, minifier, cfg.Banner, fileCache)
 
 	// Apply security headers middleware
 	handler = middleware.SecurityHeadersMiddleware(handler)

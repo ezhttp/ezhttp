@@ -12,7 +12,7 @@ import (
 )
 
 // MwNonce is the main HTTP handler middleware that adds nonces and serves files
-func MwNonce(minhttpfs http.Handler, compiledCsp string, cachedIndexString []string, minifier *minify.M, banner []string) http.HandlerFunc {
+func MwNonce(minhttpfs http.Handler, compiledCsp string, cachedIndexString []string, minifier *minify.M, banner []string, fileCache *FileExistenceCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		// Extract Path
@@ -56,8 +56,8 @@ func MwNonce(minhttpfs http.Handler, compiledCsp string, cachedIndexString []str
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		// Check for File
-		pathexists, pathchecked := utils.CheckFilePath(path)
+		// Check for File using cache
+		pathexists, pathchecked := fileCache.CheckPath(path)
 		//log.Println("CHECK PATH:", pathexists, pathchecked)
 
 		// Doesn't Happen. Weird. We re-assign "/" to "/index.html" above to address.
