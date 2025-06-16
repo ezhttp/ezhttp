@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "listen_addr": "127.0.0.1",
+  "listen_port": "8443",
+  "proxy": {
+    "target_url": "http://origin.example.com",
+    "auth_token": "change-me-to-a-secure-password",
+    "allow_insecure_origin_tls": false,
+    "relaxed_origin_tls": false,
+    "max_idle_conns": 100,
+    "idle_conn_timeout": "90s"
+  },
+  "rate_limit": {
+    "enabled": true,
+    "requests_per_minute": 300,
+    "burst_size": 50,
+    "cleanup_interval": "10m"
+  },
+  "tls": {
+    "cert_file": "",
+    "key_file": ""
+  }
+}

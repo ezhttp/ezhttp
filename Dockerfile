@@ -12,7 +12,11 @@ RUN go mod tidy && \
 	go build -o "./ezhttp" \
 	-ldflags="-s -w -X main.BuildDate=${build_date} -X main.BuildGoVersion=${golang_version} -X main.BuildGitHash=${build_git_hash}" \
 	./cmd/server/main.go && \
-	./ezhttp --version
+	go build -o "./ezhttp-proxy" \
+	-ldflags="-s -w -X main.BuildDate=${build_date} -X main.BuildGoVersion=${golang_version} -X main.BuildGitHash=${build_git_hash}" \
+	./cmd/proxy/main.go && \
+	./ezhttp --version && \
+	./ezhttp-proxy --version
 
 # Stage 2: Runtime image
 FROM alpine:3.22.0
@@ -24,9 +28,10 @@ RUN apk add --no-cache curl && \
 
 WORKDIR /usr/src/app
 
-# Copy binary from builder stage
+# Copy binaries from builder stage
 COPY --from=builder /usr/src/app/ezhttp ./ezhttp
-RUN chmod +x ./ezhttp
+COPY --from=builder /usr/src/app/ezhttp-proxy ./ezhttp-proxy
+RUN chmod +x ./ezhttp ./ezhttp-proxy
 
 # Copy config and public files
 COPY ./config.json .

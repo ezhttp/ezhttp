@@ -19,6 +19,7 @@ type DataConfig struct {
 	Csp              DataConfigCsp       `json:"csp"`
 	RateLimit        DataConfigRateLimit `json:"rate_limit"`
 	TLS              DataConfigTLS       `json:"tls"`
+	Proxy            DataConfigProxy     `json:"proxy"`
 }
 
 type DataConfigCsp struct {
@@ -48,6 +49,15 @@ type DataConfigRateLimit struct {
 type DataConfigTLS struct {
 	CertFile string `json:"cert_file"`
 	KeyFile  string `json:"key_file"`
+}
+
+type DataConfigProxy struct {
+	TargetURL              string `json:"target_url"`
+	AuthToken              string `json:"auth_token"`
+	AllowInsecureOriginTLS bool   `json:"allow_insecure_origin_tls"`
+	RelaxedOriginTLS       bool   `json:"relaxed_origin_tls"`
+	MaxIdleConns           int    `json:"max_idle_conns"`
+	IdleConnTimeout        string `json:"idle_conn_timeout"`
 }
 
 func DefaultConfigCsp() DataConfigCsp {
@@ -170,6 +180,14 @@ func ConfigDefault() DataConfig {
 			CertFile: "",
 			KeyFile:  "",
 		},
+		Proxy: DataConfigProxy{
+			TargetURL:              "",
+			AuthToken:              "",
+			AllowInsecureOriginTLS: false,
+			RelaxedOriginTLS:       false,
+			MaxIdleConns:           100,
+			IdleConnTimeout:        "90s",
+		},
 	}
 }
 
@@ -228,6 +246,18 @@ func ConfigLoad() DataConfig {
 	if envTLSKey != "" {
 		logger.Info("Environment override for TLS key", "path", envTLSKey)
 		c.TLS.KeyFile = envTLSKey
+	}
+
+	// Proxy environment overrides
+	envProxyTarget := os.Getenv("PROXY_TARGET")
+	if envProxyTarget != "" {
+		logger.Info("Environment override for proxy target", "url", envProxyTarget)
+		c.Proxy.TargetURL = envProxyTarget
+	}
+	envProxyAuth := os.Getenv("PROXY_AUTH_TOKEN")
+	if envProxyAuth != "" {
+		logger.Info("Environment override for proxy auth token")
+		c.Proxy.AuthToken = envProxyAuth
 	}
 
 	// Validate configuration
