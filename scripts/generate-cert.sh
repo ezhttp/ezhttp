@@ -2,7 +2,7 @@
 
 # Generate private key and certificate in one command
 openssl req -x509 \
-    -newkey rsa:2048 \
+    -newkey rsa:4096 \
     -keyout localhost.key \
     -out localhost.crt \
     -days 3650 \

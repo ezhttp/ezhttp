@@ -103,8 +103,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Copy headers
-	copyHeaders(proxyReq.Header, r.Header)
+	// Clone headers efficiently (available in Go 1.13+)
+	proxyReq.Header = r.Header.Clone()
 
 	// Remove hop-by-hop headers
 	removeHopByHopHeaders(proxyReq.Header)
@@ -163,10 +163,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"headers", fmt.Sprintf("%v", resp.Header))
 	}
 
-	// Copy response headers
-	copyHeaders(w.Header(), resp.Header)
-	removeHopByHopHeaders(w.Header())
-	removeSensitiveResponseHeaders(w.Header())
+	// Copy response headers efficiently
+	responseHeaders := w.Header()
+	for k, vv := range resp.Header {
+		responseHeaders[k] = vv
+	}
+	removeHopByHopHeaders(responseHeaders)
+	removeSensitiveResponseHeaders(responseHeaders)
 
 	// Write status code
 	w.WriteHeader(resp.StatusCode)
@@ -200,15 +203,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"target", targetURL.String(),
 		"status", resp.StatusCode,
 		"ip", clientIP)
-}
-
-// Copies headers from source to destination
-func copyHeaders(dst, src http.Header) {
-	for k, vv := range src {
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
-	}
 }
 
 // Removes headers that shouldn't be forwarded
