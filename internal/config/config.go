@@ -18,6 +18,7 @@ type DataConfig struct {
 	Banner           []string            `json:"banner"`
 	Csp              DataConfigCsp       `json:"csp"`
 	RateLimit        DataConfigRateLimit `json:"rate_limit"`
+	TLS              DataConfigTLS       `json:"tls"`
 }
 
 type DataConfigCsp struct {
@@ -42,6 +43,11 @@ type DataConfigRateLimit struct {
 	RequestsPerMinute int    `json:"requests_per_minute"`
 	BurstSize         int    `json:"burst_size"`
 	CleanupInterval   string `json:"cleanup_interval"`
+}
+
+type DataConfigTLS struct {
+	CertFile string `json:"cert_file"`
+	KeyFile  string `json:"key_file"`
 }
 
 func DefaultConfigCsp() DataConfigCsp {
@@ -160,6 +166,10 @@ func ConfigDefault() DataConfig {
 			BurstSize:         10,
 			CleanupInterval:   "30m",
 		},
+		TLS: DataConfigTLS{
+			CertFile: "",
+			KeyFile:  "",
+		},
 	}
 }
 
@@ -206,6 +216,18 @@ func ConfigLoad() DataConfig {
 	if envPort != "" {
 		logger.Info("Environment override for port", "port", envPort)
 		c.ListenPort = envPort
+	}
+
+	// TLS environment overrides
+	envTLSCert := os.Getenv("TLS_CERT")
+	if envTLSCert != "" {
+		logger.Info("Environment override for TLS certificate", "path", envTLSCert)
+		c.TLS.CertFile = envTLSCert
+	}
+	envTLSKey := os.Getenv("TLS_KEY")
+	if envTLSKey != "" {
+		logger.Info("Environment override for TLS key", "path", envTLSKey)
+		c.TLS.KeyFile = envTLSKey
 	}
 
 	// Validate configuration

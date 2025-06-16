@@ -19,8 +19,12 @@
   },
   "rate_limit": {
     "enabled": true,
-    "requests_per_minute": 60,
-    "burst_size": 10,
-    "cleanup_interval": "30m"
+    "requests_per_minute": 200,
+    "burst_size": 20,
+    "cleanup_interval": "10m"
+  },
+  "tls": {
+    "cert_file": "",
+    "key_file": ""
   }
 }

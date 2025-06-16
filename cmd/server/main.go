@@ -102,17 +102,33 @@ func main() {
 			"burst_size", cfg.RateLimit.BurstSize)
 	}
 
-	logger.Info("Server starting", "address", cfg.ListenAddr, "port", cfg.ListenPort)
+	// Configure server
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr + ":" + cfg.ListenPort,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
-		//TLSConfig:         tlsConfig,
-		Handler: handler,
+		Handler:           handler,
 	}
-	err = httpServer.ListenAndServe()
+
+	// Start server with or without TLS
+	if cfg.TLS.CertFile != "" && cfg.TLS.KeyFile != "" {
+		// Configure TLS
+		httpServer.TLSConfig = server.CreateTLSConfig()
+
+		logger.Info("Starting HTTPS server",
+			"address", cfg.ListenAddr,
+			"port", cfg.ListenPort,
+			"cert", cfg.TLS.CertFile,
+			"key", cfg.TLS.KeyFile)
+
+		err = httpServer.ListenAndServeTLS(cfg.TLS.CertFile, cfg.TLS.KeyFile)
+	} else {
+		logger.Info("Starting HTTP server", "address", cfg.ListenAddr, "port", cfg.ListenPort)
+		err = httpServer.ListenAndServe()
+	}
+
 	if err != nil {
 		logger.Fatal("Server failed to start", "error", err)
 	}

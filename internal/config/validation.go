@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Validates all configuration values
@@ -27,6 +29,37 @@ func ValidateConfig(c *DataConfig) error {
 	// Validate CSP
 	if err := validateCSP(&c.Csp); err != nil {
 		return fmt.Errorf("invalid CSP configuration: %w", err)
+	}
+
+	// Validate rate limit settings
+	if c.RateLimit.Enabled {
+		if c.RateLimit.RequestsPerMinute <= 0 {
+			return fmt.Errorf("rate limit requests per minute must be positive")
+		}
+		if c.RateLimit.BurstSize <= 0 {
+			return fmt.Errorf("rate limit burst size must be positive")
+		}
+		if c.RateLimit.CleanupInterval != "" {
+			if _, err := time.ParseDuration(c.RateLimit.CleanupInterval); err != nil {
+				return fmt.Errorf("invalid cleanup interval: %w", err)
+			}
+		}
+	}
+
+	// Validate TLS settings
+	if c.TLS.CertFile != "" || c.TLS.KeyFile != "" {
+		// If one is set, both must be set
+		if c.TLS.CertFile == "" || c.TLS.KeyFile == "" {
+			return fmt.Errorf("both TLS certificate and key files must be provided")
+		}
+
+		// Check if files exist
+		if _, err := os.Stat(c.TLS.CertFile); err != nil {
+			return fmt.Errorf("TLS certificate file not found: %s", c.TLS.CertFile)
+		}
+		if _, err := os.Stat(c.TLS.KeyFile); err != nil {
+			return fmt.Errorf("TLS key file not found: %s", c.TLS.KeyFile)
+		}
 	}
 
 	return nil
