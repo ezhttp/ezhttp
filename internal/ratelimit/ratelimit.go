@@ -9,14 +9,18 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Manages per-IP rate limiting
+// Manages per-IP rate limiting and blocking
 type Limiter struct {
 	mu               sync.Mutex
 	limiters         map[string]*rate.Limiter
 	limitersLastUsed map[string]time.Time
+	blocked          map[string]time.Time // IP -> unblock time
+	authFailures     map[string]int       // IP -> failure count
 	requestsPerMin   int
 	burstSize        int
 	cleanupInterval  time.Duration
+	maxAuthAttempts  int
+	blockDuration    time.Duration
 }
 
 // Creates a new rate limiter
@@ -24,9 +28,13 @@ func NewLimiter(requestsPerMin, burstSize int, cleanupInterval time.Duration) *L
 	l := &Limiter{
 		limiters:         make(map[string]*rate.Limiter),
 		limitersLastUsed: make(map[string]time.Time),
+		blocked:          make(map[string]time.Time),
+		authFailures:     make(map[string]int),
 		requestsPerMin:   requestsPerMin,
 		burstSize:        burstSize,
 		cleanupInterval:  cleanupInterval,
+		maxAuthAttempts:  5,
+		blockDuration:    15 * time.Minute,
 	}
 
 	// Start cleanup goroutine

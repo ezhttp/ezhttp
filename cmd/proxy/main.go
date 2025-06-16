@@ -44,10 +44,31 @@ func main() {
 	// Add security headers (applies to all responses)
 	handler = proxy.SecurityHeadersMiddleware(handler)
 
-	// Add authentication if configured (before rate limiting)
+	// Create proxy limiter with IP blocking if auth is enabled
+	var proxyLimiter *proxy.ProxyLimiter
 	if cfg.Proxy.AuthToken != "" {
-		handler = proxy.AuthMiddleware(cfg.Proxy.AuthToken)(handler)
-		logger.Info("Proxy authentication enabled")
+		// Parse block duration
+		blockDuration := 15 * time.Minute
+		if cfg.Proxy.BlockDuration != "" {
+			if d, err := time.ParseDuration(cfg.Proxy.BlockDuration); err == nil {
+				blockDuration = d
+			}
+		}
+
+		cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
+		proxyLimiter = proxy.NewProxyLimiter(
+			cfg.RateLimit.RequestsPerMinute,
+			cfg.RateLimit.BurstSize,
+			cfg.Proxy.MaxAuthAttempts,
+			cleanupInterval,
+			blockDuration,
+		)
+
+		// Add authentication middleware with IP blocking
+		handler = proxy.AuthMiddleware(cfg.Proxy.AuthToken, proxyLimiter)(handler)
+		logger.Info("Proxy authentication enabled",
+			"max_auth_attempts", cfg.Proxy.MaxAuthAttempts,
+			"block_duration", blockDuration.String())
 	}
 
 	// Add health check endpoint (bypasses auth)
@@ -55,13 +76,30 @@ func main() {
 
 	// Apply rate limiting if enabled
 	if cfg.RateLimit.Enabled {
-		cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
-		limiter := ratelimit.NewLimiter(
-			cfg.RateLimit.RequestsPerMinute,
-			cfg.RateLimit.BurstSize,
-			cleanupInterval,
-		)
-		handler = server.RateLimitMiddleware(limiter)(handler)
+		if proxyLimiter != nil {
+			// Use proxy limiter for rate limiting
+			handler = func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					ip := ratelimit.ExtractIP(r.RemoteAddr)
+					if !proxyLimiter.Allow(ip) {
+						logger.Warn("Rate limit exceeded", "ip", ip)
+						w.Header().Set("Retry-After", "60")
+						http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+						return
+					}
+					next.ServeHTTP(w, r)
+				})
+			}(handler)
+		} else {
+			// Use basic rate limiter
+			cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
+			limiter := ratelimit.NewLimiter(
+				cfg.RateLimit.RequestsPerMinute,
+				cfg.RateLimit.BurstSize,
+				cleanupInterval,
+			)
+			handler = server.RateLimitMiddleware(limiter)(handler)
+		}
 		logger.Info("Rate limiting enabled",
 			"requests_per_minute", cfg.RateLimit.RequestsPerMinute,
 			"burst_size", cfg.RateLimit.BurstSize)

@@ -58,6 +58,8 @@ type DataConfigProxy struct {
 	RelaxedOriginTLS       bool   `json:"relaxed_origin_tls"`
 	MaxIdleConns           int    `json:"max_idle_conns"`
 	IdleConnTimeout        string `json:"idle_conn_timeout"`
+	MaxAuthAttempts        int    `json:"max_auth_attempts"`
+	BlockDuration          string `json:"block_duration"`
 	DebugMode              bool   `json:"debug_mode"`
 }
 
@@ -188,6 +190,8 @@ func ConfigDefault() DataConfig {
 			RelaxedOriginTLS:       false,
 			MaxIdleConns:           100,
 			IdleConnTimeout:        "90s",
+			MaxAuthAttempts:        5,
+			BlockDuration:          "15m",
 			DebugMode:              false,
 		},
 	}
