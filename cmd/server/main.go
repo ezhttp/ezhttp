@@ -9,9 +9,11 @@ import (
 
 	"github.com/ezhttp/ezhttp/internal/config"
 	"github.com/ezhttp/ezhttp/internal/logger"
+	"github.com/ezhttp/ezhttp/internal/middleware"
 	"github.com/ezhttp/ezhttp/internal/ratelimit"
 	"github.com/ezhttp/ezhttp/internal/security"
 	"github.com/ezhttp/ezhttp/internal/server"
+	tlsconfig "github.com/ezhttp/ezhttp/internal/tls"
 	"github.com/ezhttp/ezhttp/internal/version"
 
 	"github.com/tdewolff/minify/v2"
@@ -89,6 +91,9 @@ func main() {
 	// Create handler chain
 	var handler http.Handler = server.MwNonce(httpfs, compiledCsp, cachedIndexString, minifier, cfg.Banner)
 
+	// Apply security headers middleware
+	handler = middleware.SecurityHeadersMiddleware(handler)
+
 	// Apply rate limiting if enabled
 	if cfg.RateLimit.Enabled {
 		cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
@@ -97,7 +102,7 @@ func main() {
 			cfg.RateLimit.BurstSize,
 			cleanupInterval,
 		)
-		handler = server.RateLimitMiddleware(limiter)(handler)
+		handler = middleware.RateLimitMiddleware(limiter)(handler)
 		logger.Info("Rate limiting enabled",
 			"requests_per_minute", cfg.RateLimit.RequestsPerMinute,
 			"burst_size", cfg.RateLimit.BurstSize)
@@ -120,7 +125,7 @@ func main() {
 	// Start server with or without TLS
 	if cfg.TLS.CertFile != "" && cfg.TLS.KeyFile != "" {
 		// Configure TLS
-		httpServer.TLSConfig = server.CreateTLSConfig()
+		httpServer.TLSConfig = tlsconfig.CreateServerTLSConfig()
 
 		logger.Info("Starting HTTPS server",
 			"address", cfg.ListenAddr,

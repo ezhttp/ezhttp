@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +12,7 @@ import (
 	"github.com/ezhttp/ezhttp/internal/config"
 	"github.com/ezhttp/ezhttp/internal/logger"
 	"github.com/ezhttp/ezhttp/internal/ratelimit"
+	tlsconfig "github.com/ezhttp/ezhttp/internal/tls"
 )
 
 type Handler struct {
@@ -63,39 +63,15 @@ func (h *Handler) createTransport() *http.Transport {
 	}
 
 	// Configure TLS based on settings
+	var securityLevel tlsconfig.SecurityLevel
 	if h.config.AllowInsecureOriginTLS {
-		// Skip certificate verification (dangerous, but needed for some legacy systems)
-		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-			MinVersion:         tls.VersionTLS12,
-		}
-		logger.Warn("Proxy configured to skip TLS verification for origin")
+		securityLevel = tlsconfig.SecurityLevelInsecure
 	} else if h.config.RelaxedOriginTLS {
-		// Use default cipher suites for compatibility
-		transport.TLSClientConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-		logger.Info("Proxy using relaxed TLS settings for origin")
+		securityLevel = tlsconfig.SecurityLevelRelaxed
 	} else {
-		// Strong TLS configuration
-		transport.TLSClientConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-			},
-			CurvePreferences: []tls.CurveID{
-				tls.X25519,
-				tls.CurveP256,
-				tls.CurveP384,
-			},
-		}
-		logger.Info("Proxy using strong TLS settings for origin")
+		securityLevel = tlsconfig.SecurityLevelStrong
 	}
+	transport.TLSClientConfig = tlsconfig.CreateClientTLSConfig(securityLevel)
 
 	return transport
 }
