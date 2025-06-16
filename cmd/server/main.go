@@ -8,6 +8,7 @@ import (
 
 	"github.com/ezhttp/ezhttp/internal/config"
 	"github.com/ezhttp/ezhttp/internal/logger"
+	"github.com/ezhttp/ezhttp/internal/ratelimit"
 	"github.com/ezhttp/ezhttp/internal/security"
 	"github.com/ezhttp/ezhttp/internal/server"
 	"github.com/ezhttp/ezhttp/internal/version"
@@ -84,6 +85,23 @@ func main() {
 	// // strings.TrimRight("/statics/", "/")
 	// http.Handle("/", mwNonce(httpfs))
 
+	// Create handler chain
+	var handler http.Handler = server.MwNonce(httpfs, compiledCsp, cachedIndexString, minifier, cfg.Banner)
+
+	// Apply rate limiting if enabled
+	if cfg.RateLimit.Enabled {
+		cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
+		limiter := ratelimit.NewLimiter(
+			cfg.RateLimit.RequestsPerMinute,
+			cfg.RateLimit.BurstSize,
+			cleanupInterval,
+		)
+		handler = server.RateLimitMiddleware(limiter)(handler)
+		logger.Info("Rate limiting enabled",
+			"requests_per_minute", cfg.RateLimit.RequestsPerMinute,
+			"burst_size", cfg.RateLimit.BurstSize)
+	}
+
 	logger.Info("Server starting", "address", cfg.ListenAddr, "port", cfg.ListenPort)
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr + ":" + cfg.ListenPort,
@@ -92,7 +110,7 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		//TLSConfig:         tlsConfig,
-		Handler: server.MwNonce(httpfs, compiledCsp, cachedIndexString, minifier, cfg.Banner),
+		Handler: handler,
 	}
 	err = httpServer.ListenAndServe()
 	if err != nil {

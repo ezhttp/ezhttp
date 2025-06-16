@@ -16,5 +16,11 @@
       "https://fonts.googleapis.com",
       "https://cdn.jsdelivr.net"
     ]
+  },
+  "rate_limit": {
+    "enabled": true,
+    "requests_per_minute": 60,
+    "burst_size": 10,
+    "cleanup_interval": "30m"
   }
 }

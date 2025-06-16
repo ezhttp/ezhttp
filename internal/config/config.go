@@ -11,12 +11,13 @@ import (
 )
 
 type DataConfig struct {
-	Version          int           `json:"version"`
-	ListenAddr       string        `json:"listen_addr"`
-	ListenPort       string        `json:"listen_port"`
-	NoncePlaceholder string        `json:"nonce_placeholder"`
-	Banner           []string      `json:"banner"`
-	Csp              DataConfigCsp `json:"csp"`
+	Version          int                 `json:"version"`
+	ListenAddr       string              `json:"listen_addr"`
+	ListenPort       string              `json:"listen_port"`
+	NoncePlaceholder string              `json:"nonce_placeholder"`
+	Banner           []string            `json:"banner"`
+	Csp              DataConfigCsp       `json:"csp"`
+	RateLimit        DataConfigRateLimit `json:"rate_limit"`
 }
 
 type DataConfigCsp struct {
@@ -34,6 +35,13 @@ type DataConfigCsp struct {
 	RequireTrustedTypesFor []string `json:"require-trusted-types-for"`
 	ScriptSrc              []string `json:"script-src"`
 	StyleSrc               []string `json:"style-src"`
+}
+
+type DataConfigRateLimit struct {
+	Enabled           bool   `json:"enabled"`
+	RequestsPerMinute int    `json:"requests_per_minute"`
+	BurstSize         int    `json:"burst_size"`
+	CleanupInterval   string `json:"cleanup_interval"`
 }
 
 func DefaultConfigCsp() DataConfigCsp {
@@ -146,6 +154,12 @@ func ConfigDefault() DataConfig {
 			`<!-- EZhttp ${BuildVersion} -->`,
 		},
 		Csp: DefaultConfigCsp(),
+		RateLimit: DataConfigRateLimit{
+			Enabled:           true,
+			RequestsPerMinute: 60,
+			BurstSize:         10,
+			CleanupInterval:   "30m",
+		},
 	}
 }
 

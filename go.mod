@@ -7,4 +7,7 @@ require (
 	github.com/tdewolff/minify/v2 v2.23.8
 )
 
-require github.com/tdewolff/parse/v2 v2.8.1 // indirect
+require (
+	github.com/tdewolff/parse/v2 v2.8.1 // indirect
+	golang.org/x/time v0.12.0 // indirect
+)
