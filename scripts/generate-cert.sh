@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Generate private key and certificate in one command
 openssl req -x509 \
@@ -9,5 +10,9 @@ openssl req -x509 \
     -nodes \
     -subj "/CN=localhost";
 
-echo "Generated localhost.key and localhost.crt";
-echo "Run with TLS_KEY=localhost.key TLS_CERT=localhost.crt go run ./cmd/server/main.go";
+# Set secure permissions
+chmod 600 localhost.key
+chmod 644 localhost.crt
+
+echo "Generated localhost.key and localhost.crt"
+echo "Usage: TLS_KEY=localhost.key TLS_CERT=localhost.crt ./ezhttp"
