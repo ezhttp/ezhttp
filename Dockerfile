@@ -11,7 +11,7 @@ COPY . .
 RUN go mod tidy && \
 	go build -o "./ezhttp" \
 	-ldflags="-s -w -X main.BuildDate=${build_date} -X main.BuildGoVersion=${golang_version} -X main.BuildGitHash=${build_git_hash}" \
-	./main.go && \
+	./cmd/server/main.go && \
 	./ezhttp --version
 
 # Stage 2: Runtime image
