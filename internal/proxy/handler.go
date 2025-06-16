@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -161,6 +162,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.transport.RoundTrip(proxyReq)
 	if err != nil {
 		logger.Error("Backend request failed", "error", err, "url", targetURL.String())
+
+		// Check if it's a timeout error
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			http.Error(w, "Gateway Timeout", http.StatusGatewayTimeout)
+			return
+		}
+
+		// Check for context deadline exceeded
+		if strings.Contains(err.Error(), "context deadline exceeded") {
+			http.Error(w, "Gateway Timeout", http.StatusGatewayTimeout)
+			return
+		}
+
 		http.Error(w, "Bad Gateway", http.StatusBadGateway)
 		return
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"net"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -109,8 +110,12 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB
 		Handler:           handler,
 	}
+
+	// Always use IPv4-only mode
+	network := "tcp4"
 
 	// Start server with or without TLS
 	if cfg.TLS.CertFile != "" && cfg.TLS.KeyFile != "" {
@@ -123,10 +128,18 @@ func main() {
 			"cert", cfg.TLS.CertFile,
 			"key", cfg.TLS.KeyFile)
 
-		err = httpServer.ListenAndServeTLS(cfg.TLS.CertFile, cfg.TLS.KeyFile)
+		ln, err := net.Listen(network, httpServer.Addr)
+		if err != nil {
+			logger.Fatal("Failed to listen", "error", err)
+		}
+		err = httpServer.ServeTLS(ln, cfg.TLS.CertFile, cfg.TLS.KeyFile)
 	} else {
 		logger.Info("Starting HTTP server", "address", cfg.ListenAddr, "port", cfg.ListenPort)
-		err = httpServer.ListenAndServe()
+		ln, err := net.Listen(network, httpServer.Addr)
+		if err != nil {
+			logger.Fatal("Failed to listen", "error", err)
+		}
+		err = httpServer.Serve(ln)
 	}
 
 	if err != nil {

@@ -9,8 +9,8 @@ import (
 	"github.com/ezhttp/ezhttp/internal/ratelimit"
 )
 
-// Creates an authentication middleware for the proxy
-func AuthMiddleware(authToken string) func(http.Handler) http.Handler {
+// Creates an authentication middleware for the proxy with IP blocking support
+func AuthMiddleware(authToken string, limiter *ProxyLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// If no auth token is configured, allow all requests
@@ -19,35 +19,52 @@ func AuthMiddleware(authToken string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Check Authorization header
+			ip := ratelimit.ExtractIP(r.RemoteAddr)
+
+			// Check if IP is blocked
+			if limiter != nil && limiter.IsBlocked(ip) {
+				logger.Warn("Blocked IP attempted access", "ip", ip)
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			// Check X-Proxy-Password header first (recommended)
+			proxyPassword := r.Header.Get("X-Proxy-Password")
+			if proxyPassword != "" {
+				if subtle.ConstantTimeCompare([]byte(proxyPassword), []byte(authToken)) == 1 {
+					// Authentication successful
+					if limiter != nil {
+						limiter.ResetAuthFailures(ip)
+					}
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Check Authorization Bearer header
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				logger.Warn("Missing authorization header", "ip", ratelimit.ExtractIP(r.RemoteAddr))
-				w.Header().Set("WWW-Authenticate", `Bearer realm="proxy"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
+			if authHeader != "" {
+				const bearerPrefix = "Bearer "
+				if strings.HasPrefix(authHeader, bearerPrefix) {
+					token := authHeader[len(bearerPrefix):]
+					if subtle.ConstantTimeCompare([]byte(token), []byte(authToken)) == 1 {
+						// Authentication successful
+						if limiter != nil {
+							limiter.ResetAuthFailures(ip)
+						}
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
 			}
 
-			// Validate Bearer token
-			const bearerPrefix = "Bearer "
-			if !strings.HasPrefix(authHeader, bearerPrefix) {
-				logger.Warn("Invalid authorization header format", "ip", ratelimit.ExtractIP(r.RemoteAddr))
-				w.Header().Set("WWW-Authenticate", `Bearer realm="proxy"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
+			// Authentication failed
+			if limiter != nil {
+				limiter.RecordAuthFailure(ip)
 			}
-
-			token := authHeader[len(bearerPrefix):]
-			// Use constant-time comparison to prevent timing attacks
-			if subtle.ConstantTimeCompare([]byte(token), []byte(authToken)) != 1 {
-				logger.Warn("Invalid authorization token", "ip", ratelimit.ExtractIP(r.RemoteAddr))
-				w.Header().Set("WWW-Authenticate", `Bearer realm="proxy"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			// Authentication successful
-			next.ServeHTTP(w, r)
+			logger.Warn("Authentication failed", "ip", ip)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="proxy"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		})
 	}
 }

@@ -46,6 +46,11 @@ func ValidateConfig(c *DataConfig) error {
 		}
 	}
 
+	// Validate proxy settings
+	if c.Proxy.AuthToken != "" && len(c.Proxy.AuthToken) < 16 {
+		return fmt.Errorf("proxy auth token must be at least 16 characters long")
+	}
+
 	// Validate TLS settings
 	if c.TLS.CertFile != "" || c.TLS.KeyFile != "" {
 		// If one is set, both must be set

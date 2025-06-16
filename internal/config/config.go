@@ -54,10 +54,12 @@ type DataConfigTLS struct {
 type DataConfigProxy struct {
 	TargetURL              string `json:"target_url"`
 	AuthToken              string `json:"auth_token"`
+	AllowedHost            string `json:"allowed_host"`
 	AllowInsecureOriginTLS bool   `json:"allow_insecure_origin_tls"`
 	RelaxedOriginTLS       bool   `json:"relaxed_origin_tls"`
 	MaxIdleConns           int    `json:"max_idle_conns"`
 	IdleConnTimeout        string `json:"idle_conn_timeout"`
+	MaxRequestSize         int64  `json:"max_request_size"`
 	MaxAuthAttempts        int    `json:"max_auth_attempts"`
 	BlockDuration          string `json:"block_duration"`
 	DebugMode              bool   `json:"debug_mode"`
@@ -186,10 +188,12 @@ func ConfigDefault() DataConfig {
 		Proxy: DataConfigProxy{
 			TargetURL:              "",
 			AuthToken:              "",
+			AllowedHost:            "",
 			AllowInsecureOriginTLS: false,
 			RelaxedOriginTLS:       false,
 			MaxIdleConns:           100,
 			IdleConnTimeout:        "90s",
+			MaxRequestSize:         52428800, // 50MB
 			MaxAuthAttempts:        5,
 			BlockDuration:          "15m",
 			DebugMode:              false,
@@ -264,6 +268,11 @@ func ConfigLoad() DataConfig {
 	if envProxyAuth != "" {
 		logger.Info("Environment override for proxy auth token")
 		c.Proxy.AuthToken = envProxyAuth
+	}
+	envAllowedHost := os.Getenv("ALLOWED_HOST")
+	if envAllowedHost != "" {
+		logger.Info("Environment override for allowed host", "host", envAllowedHost)
+		c.Proxy.AllowedHost = envAllowedHost
 	}
 	envDebugMode := os.Getenv("DEBUG_MODE")
 	if envDebugMode == "true" {
