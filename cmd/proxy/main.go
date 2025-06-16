@@ -38,17 +38,20 @@ func main() {
 		logger.Fatal("Failed to create proxy handler", "error", err)
 	}
 
-	// Build middleware chain
+	// Build middleware chain (order matters!)
 	var handler http.Handler = proxyHandler
 
-	// Add security headers
+	// Add security headers (applies to all responses)
 	handler = proxy.SecurityHeadersMiddleware(handler)
 
-	// Add authentication if configured
+	// Add authentication if configured (before rate limiting)
 	if cfg.Proxy.AuthToken != "" {
 		handler = proxy.AuthMiddleware(cfg.Proxy.AuthToken)(handler)
 		logger.Info("Proxy authentication enabled")
 	}
+
+	// Add health check endpoint (bypasses auth)
+	handler = proxy.HealthCheckMiddleware(handler)
 
 	// Apply rate limiting if enabled
 	if cfg.RateLimit.Enabled {

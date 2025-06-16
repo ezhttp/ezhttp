@@ -11,6 +11,7 @@ import (
 
 	"github.com/ezhttp/ezhttp/internal/config"
 	"github.com/ezhttp/ezhttp/internal/logger"
+	"github.com/ezhttp/ezhttp/internal/ratelimit"
 )
 
 type Handler struct {
@@ -98,6 +99,9 @@ func (h *Handler) createTransport() *http.Transport {
 
 // Handles proxy requests
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Log the request
+	clientIP := ratelimit.ExtractIP(r.RemoteAddr)
+
 	// Create new request for backend
 	targetURL := *h.targetURL
 	targetURL.Path = r.URL.Path
@@ -116,6 +120,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Remove hop-by-hop headers
 	removeHopByHopHeaders(proxyReq.Header)
 
+	// Remove sensitive headers before forwarding
+	removeSensitiveRequestHeaders(proxyReq.Header)
+
 	// Add X-Forwarded headers
 	if clientIP := r.RemoteAddr; clientIP != "" {
 		if prior, ok := proxyReq.Header["X-Forwarded-For"]; ok {
@@ -128,6 +135,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		proxyReq.Header.Set("X-Forwarded-Proto", "https")
 	}
 	proxyReq.Header.Set("X-Forwarded-Host", r.Host)
+	proxyReq.Header.Set("X-Real-IP", r.RemoteAddr)
 
 	// Send request to backend
 	resp, err := h.transport.RoundTrip(proxyReq)
@@ -141,6 +149,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Copy response headers
 	copyHeaders(w.Header(), resp.Header)
 	removeHopByHopHeaders(w.Header())
+	removeSensitiveResponseHeaders(w.Header())
 
 	// Write status code
 	w.WriteHeader(resp.StatusCode)
@@ -150,6 +159,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error("Failed to copy response body", "error", err)
 	}
+
+	// Log successful request
+	logger.Info("Proxy request",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"target", targetURL.String(),
+		"status", resp.StatusCode,
+		"ip", clientIP)
 }
 
 // Copies headers from source to destination
@@ -177,4 +194,31 @@ func removeHopByHopHeaders(h http.Header) {
 	for _, header := range hopByHopHeaders {
 		h.Del(header)
 	}
+}
+
+// Removes sensitive headers before forwarding
+func removeSensitiveRequestHeaders(h http.Header) {
+	sensitiveHeaders := []string{
+		"Authorization",
+		"Cookie",
+		"Set-Cookie",
+		"X-Proxy-Password",
+		"X-Api-Key",
+		"X-Auth-Token",
+		"X-Access-Token",
+		"X-Secret-Token",
+		"Api-Key",
+		"Access-Token",
+		"Auth-Token",
+	}
+
+	for _, header := range sensitiveHeaders {
+		h.Del(header)
+	}
+}
+
+// Removes headers that reveal server info
+func removeSensitiveResponseHeaders(h http.Header) {
+	h.Del("Server")
+	h.Del("X-Powered-By")
 }

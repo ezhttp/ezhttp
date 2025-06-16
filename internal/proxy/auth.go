@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"strings"
 
@@ -37,7 +38,8 @@ func AuthMiddleware(authToken string) func(http.Handler) http.Handler {
 			}
 
 			token := authHeader[len(bearerPrefix):]
-			if token != authToken {
+			// Use constant-time comparison to prevent timing attacks
+			if subtle.ConstantTimeCompare([]byte(token), []byte(authToken)) != 1 {
 				logger.Warn("Invalid authorization token", "ip", ratelimit.ExtractIP(r.RemoteAddr))
 				w.Header().Set("WWW-Authenticate", `Bearer realm="proxy"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -62,6 +64,20 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 		// Add HSTS header if using HTTPS
 		if r.TLS != nil {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// HealthCheckMiddleware bypasses authentication for health check endpoint
+func HealthCheckMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Health check endpoint - no auth required
+		if r.URL.Path == "/health" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+			return
 		}
 
 		next.ServeHTTP(w, r)
