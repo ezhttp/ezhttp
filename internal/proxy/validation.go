@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -34,11 +35,24 @@ func RequestValidationMiddleware(allowedHost string, maxRequestSize int64) func(
 				return
 			}
 
-			// Validate host header
-			if allowedHost != "" && r.Host != allowedHost {
-				logger.Warn("Invalid host header", "host", r.Host, "expected", allowedHost, "ip", ip)
-				http.Error(w, "Bad Request", http.StatusBadRequest)
-				return
+			// Validate host header (domain only, ignoring port)
+			if allowedHost != "" {
+				requestHost := r.Host
+				// Extract hostname without port
+				if host, _, err := net.SplitHostPort(requestHost); err == nil {
+					requestHost = host
+				}
+				// Also handle case where no port is specified
+				allowedDomain := allowedHost
+				if host, _, err := net.SplitHostPort(allowedDomain); err == nil {
+					allowedDomain = host
+				}
+
+				if requestHost != allowedDomain {
+					logger.Warn("Invalid host header", "host", r.Host, "expected", allowedHost, "ip", ip)
+					http.Error(w, "Bad Request", http.StatusBadRequest)
+					return
+				}
 			}
 
 			// Check for path traversal attempts
