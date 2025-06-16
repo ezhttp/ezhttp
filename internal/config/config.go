@@ -52,7 +52,7 @@ type DataConfigTLS struct {
 }
 
 type DataConfigProxy struct {
-	TargetURL              string `json:"target_url"`
+	OriginBaseURL          string `json:"origin_base_url"`
 	AuthToken              string `json:"auth_token"`
 	AllowedHost            string `json:"allowed_host"`
 	AllowInsecureOriginTLS bool   `json:"allow_insecure_origin_tls"`
@@ -179,7 +179,7 @@ func ConfigDefault() DataConfig {
 			KeyFile:  "",
 		},
 		Proxy: DataConfigProxy{
-			TargetURL:              "",
+			OriginBaseURL:          "",
 			AuthToken:              "",
 			AllowedHost:            "",
 			AllowInsecureOriginTLS: false,
@@ -255,7 +255,7 @@ func ConfigLoad() DataConfig {
 	envProxyTarget := os.Getenv("PROXY_TARGET")
 	if envProxyTarget != "" {
 		logger.Info("Environment override for proxy target", "url", envProxyTarget)
-		c.Proxy.TargetURL = envProxyTarget
+		c.Proxy.OriginBaseURL = envProxyTarget
 	}
 	envProxyAuth := os.Getenv("PROXY_AUTH_TOKEN")
 	if envProxyAuth != "" {

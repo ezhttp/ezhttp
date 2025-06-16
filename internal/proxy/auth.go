@@ -62,7 +62,6 @@ func AuthMiddleware(authToken string, limiter *ProxyLimiter) func(http.Handler) 
 			if limiter != nil {
 				limiter.RecordAuthFailure(ip)
 			}
-			logger.Warn("Authentication failed", "ip", ip)
 			w.Header().Set("WWW-Authenticate", `Bearer realm="proxy"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		})

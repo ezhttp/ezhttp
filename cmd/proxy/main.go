@@ -30,8 +30,8 @@ func main() {
 	cfg := config.ConfigLoad()
 
 	// Validate proxy configuration
-	if cfg.Proxy.TargetURL == "" {
-		logger.Fatal("Proxy target URL is required. Set proxy.target_url in config or PROXY_TARGET environment variable")
+	if cfg.Proxy.OriginBaseURL == "" {
+		logger.Fatal("Proxy origin base URL is required. Set proxy.origin_base_url in config or PROXY_TARGET environment variable")
 	}
 
 	// Create proxy handler
@@ -117,7 +117,7 @@ func main() {
 		logger.Info("Starting HTTPS proxy server",
 			"address", cfg.ListenAddr,
 			"port", cfg.ListenPort,
-			"target", cfg.Proxy.TargetURL,
+			"target", cfg.Proxy.OriginBaseURL,
 			"cert", cfg.TLS.CertFile,
 			"key", cfg.TLS.KeyFile)
 
@@ -130,7 +130,7 @@ func main() {
 		logger.Info("Starting HTTP proxy server",
 			"address", cfg.ListenAddr,
 			"port", cfg.ListenPort,
-			"target", cfg.Proxy.TargetURL)
+			"target", cfg.Proxy.OriginBaseURL)
 		ln, err := net.Listen(network, httpServer.Addr)
 		if err != nil {
 			logger.Fatal("Failed to listen", "error", err)

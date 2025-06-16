@@ -28,9 +28,9 @@
     "key_file": ""
   },
   "proxy": {
-    "target_url": "http://localhost:3000",
+    "origin_base_url": "http://localhost:3000",
     "auth_token": "changemechangemechangeme",
-    "allowed_host": "localhost:8080",
+    "allowed_host": "proxy.example.com",
     "allow_insecure_origin_tls": false,
     "relaxed_origin_tls": false,
     "max_idle_conns": 100,

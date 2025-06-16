@@ -16,27 +16,27 @@ import (
 )
 
 type Handler struct {
-	targetURL *url.URL
-	transport *http.Transport
-	config    *config.DataConfigProxy
-	debugMode bool
+	originBaseURL *url.URL
+	transport     *http.Transport
+	config        *config.DataConfigProxy
+	debugMode     bool
 }
 
 // Creates a new proxy handler
 func NewHandler(cfg *config.DataConfigProxy) (*Handler, error) {
-	if cfg.TargetURL == "" {
-		return nil, fmt.Errorf("proxy target URL is required")
+	if cfg.OriginBaseURL == "" {
+		return nil, fmt.Errorf("proxy origin base URL is required")
 	}
 
-	targetURL, err := url.Parse(cfg.TargetURL)
+	originBaseURL, err := url.Parse(cfg.OriginBaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid target URL: %w", err)
+		return nil, fmt.Errorf("invalid origin base URL: %w", err)
 	}
 
 	h := &Handler{
-		targetURL: targetURL,
-		config:    cfg,
-		debugMode: cfg.DebugMode,
+		originBaseURL: originBaseURL,
+		config:        cfg,
+		debugMode:     cfg.DebugMode,
 	}
 
 	// Create transport with security settings
@@ -92,11 +92,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create new request for backend
-	targetURL := *h.targetURL
-	targetURL.Path = r.URL.Path
-	targetURL.RawQuery = r.URL.RawQuery
+	originURL := *h.originBaseURL
+	originURL.Path = r.URL.Path
+	originURL.RawQuery = r.URL.RawQuery
 
-	proxyReq, err := http.NewRequest(r.Method, targetURL.String(), r.Body)
+	proxyReq, err := http.NewRequest(r.Method, originURL.String(), r.Body)
 	if err != nil {
 		logger.Error("Failed to create proxy request", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -130,14 +130,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.debugMode {
 		logger.Debug("Outgoing backend request",
 			"method", proxyReq.Method,
-			"url", targetURL.String(),
+			"url", originURL.String(),
 			"headers", fmt.Sprintf("%v", proxyReq.Header))
 	}
 
 	// Send request to backend
 	resp, err := h.transport.RoundTrip(proxyReq)
 	if err != nil {
-		logger.Error("Backend request failed", "error", err, "url", targetURL.String())
+		logger.Error("Backend request failed", "error", err, "url", originURL.String())
 
 		// Check if it's a timeout error
 		if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -200,7 +200,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Proxy request",
 		"method", r.Method,
 		"path", r.URL.Path,
-		"target", targetURL.String(),
+		"target", originURL.String(),
 		"status", resp.StatusCode,
 		"ip", clientIP)
 }
