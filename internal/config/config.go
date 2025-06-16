@@ -158,13 +158,6 @@ func (csp *DataConfigCsp) Compile() string {
 	}, " ")
 }
 
-// func DefaultsEnv() map[string]string {
-// 	return map[string]string{
-// 		"LISTEN_ADDR":         "127.0.0.1",
-// 		"LISTEN_PORT":         "8080",
-// 	}
-// }
-
 func ConfigDefault() DataConfig {
 	return DataConfig{
 		Version:          1,

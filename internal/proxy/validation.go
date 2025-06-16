@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"io"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -119,70 +118,4 @@ func containsPathTraversal(path string) bool {
 	}
 
 	return false
-}
-
-// SizeLimitMiddleware creates a middleware specifically for request size limiting
-func SizeLimitMiddleware(maxSize int64) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Check Content-Length header first
-			if r.ContentLength > maxSize {
-				logger.Warn("Request size exceeds limit",
-					"content_length", r.ContentLength,
-					"max_size", maxSize,
-					"ip", ratelimit.ExtractIP(r.RemoteAddr))
-
-				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-				w.WriteHeader(http.StatusRequestEntityTooLarge)
-				io.WriteString(w, "Request Entity Too Large")
-				return
-			}
-
-			// Wrap body with size limiter
-			r.Body = http.MaxBytesReader(w, r.Body, maxSize)
-
-			// Create a custom response writer to catch MaxBytesReader errors
-			wrapped := &sizeErrorResponseWriter{
-				ResponseWriter: w,
-				maxSize:        maxSize,
-				request:        r,
-			}
-
-			next.ServeHTTP(wrapped, r)
-		})
-	}
-}
-
-// Wraps http.ResponseWriter to catch size limit errors
-type sizeErrorResponseWriter struct {
-	http.ResponseWriter
-	maxSize int64
-	request *http.Request
-	written bool
-}
-
-func (w *sizeErrorResponseWriter) Write(b []byte) (int, error) {
-	if w.written {
-		return 0, nil
-	}
-	n, err := w.ResponseWriter.Write(b)
-	if err != nil {
-		// Check if it's a MaxBytesReader error
-		if strings.Contains(err.Error(), "http: request body too large") {
-			if !w.written {
-				w.written = true
-				logger.Warn("Request body too large during read",
-					"max_size", w.maxSize,
-					"ip", ratelimit.ExtractIP(w.request.RemoteAddr))
-			}
-		}
-	}
-	return n, err
-}
-
-func (w *sizeErrorResponseWriter) WriteHeader(statusCode int) {
-	if !w.written {
-		w.written = true
-		w.ResponseWriter.WriteHeader(statusCode)
-	}
 }

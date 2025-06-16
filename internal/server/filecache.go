@@ -104,21 +104,6 @@ func (c *FileExistenceCache) checkFileSystem(cleanPath string) (bool, string) {
 	return false, ""
 }
 
-// InvalidatePath removes a path from the cache
-func (c *FileExistenceCache) InvalidatePath(path string) {
-	cleanPath := filepath.Clean(path)
-	c.mu.Lock()
-	delete(c.cache, cleanPath)
-	c.mu.Unlock()
-}
-
-// Clear removes all entries from the cache
-func (c *FileExistenceCache) Clear() {
-	c.mu.Lock()
-	c.cache = make(map[string]*cacheEntry)
-	c.mu.Unlock()
-}
-
 // cleanupLoop periodically removes expired entries
 func (c *FileExistenceCache) cleanupLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
@@ -150,14 +135,6 @@ func (c *FileExistenceCache) cleanupExpired() {
 		c.mu.Unlock()
 		logger.Debug("Cleaned up expired cache entries", "count", len(expired))
 	}
-}
-
-// Stats returns cache statistics
-func (c *FileExistenceCache) Stats() (entries int, hits int, misses int) {
-	c.mu.RLock()
-	entries = len(c.cache)
-	c.mu.RUnlock()
-	return entries, 0, 0 // hits and misses would require additional tracking
 }
 
 // PrewarmCommonPaths pre-populates the cache with common static file paths
