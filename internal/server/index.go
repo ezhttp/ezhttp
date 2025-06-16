@@ -16,15 +16,15 @@ func LoadIndexCache() ([]string, error) {
 	fileBytes, _ := os.ReadFile("./public/index.html")
 	fileString := string(fileBytes)
 	fileSplit := strings.Split(fileString, "NONCEHERE")
-	if len(fileSplit) == 1 {
-		logger.Info("No nonce field found. Use NONCEHERE in your file to use it", "nonceCount", len(fileSplit))
-	} else if len(fileSplit) == 2 {
-		// All Good
-		logger.Info("Found one nonce field", "nonceCount", len(fileSplit))
+	nonceFieldCount := len(fileSplit) - 1
+	if nonceFieldCount == 0 {
+		logger.Info("No nonce field found. Use NONCEHERE in your file to use it", "nonceCount", nonceFieldCount)
+	} else if nonceFieldCount <= 2 {
+		// Expected: 1-2 nonces (style, script)
+		logger.Info("Found nonce fields", "nonceCount", nonceFieldCount)
 	} else {
-		// You probably do not need more than one nonce field
-		// If you need it, you can remove this line and/or open a PR
-		logger.Warn("MORE THAN ONE NONCE FIELD FOUND", "nonceCount", len(fileSplit))
+		// More than 2 nonces is unusual and might indicate an issue
+		logger.Warn("Unusually high number of nonce fields found", "nonceCount", nonceFieldCount, "expected", "1-2 (style, script)")
 	}
 
 	//bufio.NewScanner()
