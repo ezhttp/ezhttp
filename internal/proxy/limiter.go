@@ -17,13 +17,13 @@ type ProxyLimiter struct {
 	authFailures     map[string]int
 	requestsPerMin   int
 	burstSize        int
-	cleanupInterval  time.Duration
+	maxEntries       int // Maximum number of rate limiters to keep
 	maxAuthAttempts  int
 	blockDuration    time.Duration
 }
 
 // NewProxyLimiter creates a new proxy rate limiter with IP blocking
-func NewProxyLimiter(requestsPerMin, burstSize, maxAuthAttempts int, cleanupInterval, blockDuration time.Duration) *ProxyLimiter {
+func NewProxyLimiter(requestsPerMin, burstSize, maxAuthAttempts int, blockDuration time.Duration) *ProxyLimiter {
 	l := &ProxyLimiter{
 		limiters:         make(map[string]*rate.Limiter),
 		limitersLastUsed: make(map[string]time.Time),
@@ -31,14 +31,9 @@ func NewProxyLimiter(requestsPerMin, burstSize, maxAuthAttempts int, cleanupInte
 		authFailures:     make(map[string]int),
 		requestsPerMin:   requestsPerMin,
 		burstSize:        burstSize,
-		cleanupInterval:  cleanupInterval,
+		maxEntries:       10000, // Default max entries
 		maxAuthAttempts:  maxAuthAttempts,
 		blockDuration:    blockDuration,
-	}
-
-	// Start cleanup goroutine
-	if cleanupInterval > 0 {
-		go l.cleanupRoutine()
 	}
 
 	return l
@@ -51,6 +46,11 @@ func (l *ProxyLimiter) GetLimiter(ip string) *rate.Limiter {
 
 	limiter, exists := l.limiters[ip]
 	if !exists {
+		// Check if we need to clean up before adding a new entry
+		if len(l.limiters) >= l.maxEntries {
+			l.cleanupOldest()
+		}
+
 		limiter = rate.NewLimiter(rate.Limit(float64(l.requestsPerMin)/60.0), l.burstSize)
 		l.limiters[ip] = limiter
 	}
@@ -120,39 +120,47 @@ func (l *ProxyLimiter) ResetAuthFailures(ip string) {
 	delete(l.authFailures, ip)
 }
 
-// cleanupRoutine periodically removes expired entries
-func (l *ProxyLimiter) cleanupRoutine() {
-	ticker := time.NewTicker(l.cleanupInterval)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		l.cleanup()
-	}
-}
-
-// cleanup removes expired blocks and unused limiters
-func (l *ProxyLimiter) cleanup() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	now := time.Now()
-
-	// Clean up expired blocks
-	for ip, unblockTime := range l.blocked {
-		if now.After(unblockTime) {
-			delete(l.blocked, ip)
-			delete(l.authFailures, ip)
-			logger.Debug("Cleaned up expired block", "ip", ip)
-		}
+// cleanupOldest removes the oldest entries to make room for new ones
+// Must be called with mutex held
+func (l *ProxyLimiter) cleanupOldest() {
+	// Find the 20% oldest entries to remove
+	toRemove := l.maxEntries / 5
+	if toRemove < 1 {
+		toRemove = 1
 	}
 
-	// Clean up unused rate limiters
-	cutoff := now.Add(-1 * time.Hour)
+	// Create a slice of IPs sorted by last used time
+	type ipTime struct {
+		ip       string
+		lastUsed time.Time
+	}
+
+	entries := make([]ipTime, 0, len(l.limitersLastUsed))
 	for ip, lastUsed := range l.limitersLastUsed {
-		if lastUsed.Before(cutoff) {
-			delete(l.limiters, ip)
-			delete(l.limitersLastUsed, ip)
-			logger.Debug("Cleaned up unused rate limiter", "ip", ip)
+		entries = append(entries, ipTime{ip, lastUsed})
+	}
+
+	// Sort by last used time (oldest first)
+	for i := 0; i < len(entries)-1; i++ {
+		for j := i + 1; j < len(entries); j++ {
+			if entries[i].lastUsed.After(entries[j].lastUsed) {
+				entries[i], entries[j] = entries[j], entries[i]
+			}
 		}
+	}
+
+	// Remove the oldest entries
+	removed := 0
+	for _, entry := range entries {
+		if removed >= toRemove {
+			break
+		}
+		delete(l.limiters, entry.ip)
+		delete(l.limitersLastUsed, entry.ip)
+		removed++
+	}
+
+	if removed > 0 {
+		logger.Debug("Cleaned up rate limiters due to size limit", "removed", removed, "remaining", len(l.limiters))
 	}
 }

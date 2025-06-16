@@ -104,11 +104,9 @@ func main() {
 
 	// Apply rate limiting if enabled
 	if cfg.RateLimit.Enabled {
-		cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
 		limiter := ratelimit.NewLimiter(
 			cfg.RateLimit.RequestsPerMinute,
 			cfg.RateLimit.BurstSize,
-			cleanupInterval,
 		)
 		handler = middleware.RateLimitMiddleware(limiter)(handler)
 		logger.Info("Rate limiting enabled",

@@ -11,7 +11,6 @@ import (
 	"github.com/ezhttp/ezhttp/internal/middleware"
 	"github.com/ezhttp/ezhttp/internal/proxy"
 	"github.com/ezhttp/ezhttp/internal/ratelimit"
-	"github.com/ezhttp/ezhttp/internal/server"
 	tlsconfig "github.com/ezhttp/ezhttp/internal/tls"
 	"github.com/ezhttp/ezhttp/internal/version"
 )
@@ -58,12 +57,10 @@ func main() {
 			}
 		}
 
-		cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
 		proxyLimiter = proxy.NewProxyLimiter(
 			cfg.RateLimit.RequestsPerMinute,
 			cfg.RateLimit.BurstSize,
 			cfg.Proxy.MaxAuthAttempts,
-			cleanupInterval,
 			blockDuration,
 		)
 
@@ -87,11 +84,9 @@ func main() {
 			handler = middleware.ProxyRateLimitMiddleware(proxyLimiter)(handler)
 		} else {
 			// Use basic rate limiter
-			cleanupInterval := server.ParseCleanupInterval(cfg.RateLimit.CleanupInterval)
 			limiter := ratelimit.NewLimiter(
 				cfg.RateLimit.RequestsPerMinute,
 				cfg.RateLimit.BurstSize,
-				cleanupInterval,
 			)
 			handler = middleware.RateLimitMiddleware(limiter)(handler)
 		}

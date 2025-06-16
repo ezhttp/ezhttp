@@ -18,13 +18,13 @@ type Limiter struct {
 	authFailures     map[string]int       // IP -> failure count
 	requestsPerMin   int
 	burstSize        int
-	cleanupInterval  time.Duration
+	maxEntries       int // Maximum number of rate limiters to keep
 	maxAuthAttempts  int
 	blockDuration    time.Duration
 }
 
 // Creates a new rate limiter
-func NewLimiter(requestsPerMin, burstSize int, cleanupInterval time.Duration) *Limiter {
+func NewLimiter(requestsPerMin, burstSize int) *Limiter {
 	l := &Limiter{
 		limiters:         make(map[string]*rate.Limiter),
 		limitersLastUsed: make(map[string]time.Time),
@@ -32,14 +32,9 @@ func NewLimiter(requestsPerMin, burstSize int, cleanupInterval time.Duration) *L
 		authFailures:     make(map[string]int),
 		requestsPerMin:   requestsPerMin,
 		burstSize:        burstSize,
-		cleanupInterval:  cleanupInterval,
+		maxEntries:       10000, // Default max entries
 		maxAuthAttempts:  5,
 		blockDuration:    15 * time.Minute,
-	}
-
-	// Start cleanup goroutine
-	if cleanupInterval > 0 {
-		go l.cleanupRoutine()
 	}
 
 	return l
@@ -52,6 +47,11 @@ func (l *Limiter) GetLimiter(ip string) *rate.Limiter {
 
 	limiter, exists := l.limiters[ip]
 	if !exists {
+		// Check if we need to clean up before adding a new entry
+		if len(l.limiters) >= l.maxEntries {
+			l.cleanupOldest()
+		}
+
 		// Create new limiter: requests per minute converted to per second
 		limiter = rate.NewLimiter(rate.Limit(float64(l.requestsPerMin)/60.0), l.burstSize)
 		l.limiters[ip] = limiter
@@ -69,30 +69,48 @@ func (l *Limiter) Allow(ip string) bool {
 	return limiter.Allow()
 }
 
-// Periodically removes unused limiters
-func (l *Limiter) cleanupRoutine() {
-	ticker := time.NewTicker(l.cleanupInterval)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		l.cleanup()
+// Removes the oldest entries to make room for new ones
+// Must be called with mutex held
+func (l *Limiter) cleanupOldest() {
+	// Find the 20% oldest entries to remove
+	toRemove := l.maxEntries / 5
+	if toRemove < 1 {
+		toRemove = 1
 	}
-}
 
-// Removes limiters that haven't been used recently
-func (l *Limiter) cleanup() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	// Create a slice of IPs sorted by last used time
+	type ipTime struct {
+		ip       string
+		lastUsed time.Time
+	}
 
-	now := time.Now()
-	cutoff := now.Add(-1 * time.Hour) // Remove limiters unused for 1 hour
-
+	entries := make([]ipTime, 0, len(l.limitersLastUsed))
 	for ip, lastUsed := range l.limitersLastUsed {
-		if lastUsed.Before(cutoff) {
-			delete(l.limiters, ip)
-			delete(l.limitersLastUsed, ip)
-			logger.Debug("Cleaned up rate limiter", "ip", ip)
+		entries = append(entries, ipTime{ip, lastUsed})
+	}
+
+	// Sort by last used time (oldest first)
+	for i := 0; i < len(entries)-1; i++ {
+		for j := i + 1; j < len(entries); j++ {
+			if entries[i].lastUsed.After(entries[j].lastUsed) {
+				entries[i], entries[j] = entries[j], entries[i]
+			}
 		}
+	}
+
+	// Remove the oldest entries
+	removed := 0
+	for _, entry := range entries {
+		if removed >= toRemove {
+			break
+		}
+		delete(l.limiters, entry.ip)
+		delete(l.limitersLastUsed, entry.ip)
+		removed++
+	}
+
+	if removed > 0 {
+		logger.Debug("Cleaned up rate limiters due to size limit", "removed", removed, "remaining", len(l.limiters))
 	}
 }
 
