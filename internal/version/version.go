@@ -3,7 +3,7 @@ package version
 import "fmt"
 
 // Build Information
-const BuildVersion string = "0.0.3"
+const BuildVersion string = "mainline"
 
 var BuildDate string
 var BuildGoVersion string
