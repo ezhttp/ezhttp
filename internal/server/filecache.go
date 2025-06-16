@@ -45,12 +45,12 @@ func NewFileExistenceCache(basePath string, ttl time.Duration) (*FileExistenceCa
 
 // CheckPath checks if a path exists, using cache when possible
 func (c *FileExistenceCache) CheckPath(path string) (exists bool, resolvedPath string) {
-	cleanPath := filepath.Clean(path)
-
-	// Security check
-	if strings.Contains(cleanPath, "..") {
+	// Security check - check BEFORE cleaning
+	if strings.Contains(path, "..") {
 		return false, ""
 	}
+
+	cleanPath := filepath.Clean(path)
 
 	// Check cache first
 	c.mu.RLock()

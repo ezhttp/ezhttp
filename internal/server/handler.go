@@ -19,11 +19,19 @@ func MwNonce(minhttpfs http.Handler, compiledCsp string, cachedIndexString []str
 		path := r.URL.Path
 		//log.Println("PATH:", path)
 
+		// Check for path traversal attempts BEFORE cleaning
+		if strings.Contains(path, "..") {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusForbidden)
+			io.WriteString(w, "Forbidden")
+			return
+		}
+
 		// Sanitize path
 		cleanPath := filepath.Clean(path)
 
-		// Check for dotfiles and path traversal attempts
-		if utils.HasDotPrefix(cleanPath) || strings.Contains(cleanPath, "..") {
+		// Check for dotfiles
+		if utils.HasDotPrefix(cleanPath) {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusForbidden)
 			io.WriteString(w, "Forbidden")
@@ -38,23 +46,22 @@ func MwNonce(minhttpfs http.Handler, compiledCsp string, cachedIndexString []str
 			return
 		}
 
-		// Redirect Root Index
+		// Global Headers
+		w.Header().Set("Referrer-Policy", "same-origin")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
+		// Redirect Root Index (before any path modifications)
 		if path == "/index.html" || path == "/index.htm" || path == "/index" {
 			// Redirect, Permanent
 			http.Redirect(w, r, "/", http.StatusMovedPermanently)
 			return
 		}
 
-		//lastChar, _ := utf8.DecodeLastRuneInString(path[:len(path)])
-		lastChar := path[:]
-		if path != "/" && lastChar == "/" {
+		// Handle trailing slash
+		if path != "/" && strings.HasSuffix(path, "/") {
 			//log.Println("LAST CHAR IS / => /index.html")
-			path = "/index.html"
+			path = path + "index.html"
 		}
-
-		// Global Headers
-		w.Header().Set("Referrer-Policy", "same-origin")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
 
 		// Check for File using cache
 		pathexists, pathchecked := fileCache.CheckPath(path)
