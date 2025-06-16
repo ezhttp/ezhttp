@@ -2,11 +2,11 @@ package server
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
 
+	"github.com/ezhttp/ezhttp/internal/logger"
 	"github.com/ezhttp/ezhttp/internal/utils"
 	"github.com/tdewolff/minify/v2"
 )
@@ -72,7 +72,7 @@ func MwNonce(minhttpfs http.Handler, compiledCsp string, cachedIndexString []str
 			nonce := utils.RandStringCharacters(32)
 			if nonce == "" {
 				// Fail if the nonce generated incorrectly
-				log.Println("[SECURITY] Failed to generate secure nonce")
+				logger.Error("Failed to generate secure nonce", "type", "security")
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusInternalServerError)
 				io.WriteString(w, "Internal Server Error")

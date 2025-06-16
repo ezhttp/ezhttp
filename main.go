@@ -2,12 +2,12 @@ package main
 
 import (
 	"flag"
-	"log"
 	"net/http"
 	"path/filepath"
 	"time"
 
 	"github.com/ezhttp/ezhttp/internal/config"
+	"github.com/ezhttp/ezhttp/internal/logger"
 	"github.com/ezhttp/ezhttp/internal/security"
 	"github.com/ezhttp/ezhttp/internal/server"
 	"github.com/ezhttp/ezhttp/internal/version"
@@ -74,7 +74,7 @@ func main() {
 	// Create secure file server with custom FileSystem
 	publicDir, err := filepath.Abs("./public")
 	if err != nil {
-		log.Fatal("Failed to resolve public directory")
+		logger.Fatal("Failed to resolve public directory")
 	}
 
 	// Use a custom FileSystem that prevents directory listings and symlink attacks
@@ -84,7 +84,7 @@ func main() {
 	// // strings.TrimRight("/statics/", "/")
 	// http.Handle("/", mwNonce(httpfs))
 
-	log.Printf("[SERVER] Listening on %s:%s...\n", cfg.ListenAddr, cfg.ListenPort)
+	logger.Info("Server starting", "address", cfg.ListenAddr, "port", cfg.ListenPort)
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr + ":" + cfg.ListenPort,
 		ReadTimeout:       30 * time.Second,
@@ -96,6 +96,6 @@ func main() {
 	}
 	err = httpServer.ListenAndServe()
 	if err != nil {
-		log.Fatal("Server failed to start")
+		logger.Fatal("Server failed to start", "error", err)
 	}
 }

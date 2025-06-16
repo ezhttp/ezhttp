@@ -3,11 +3,11 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
 	"dario.cat/mergo"
+	"github.com/ezhttp/ezhttp/internal/logger"
 )
 
 type DataConfig struct {
@@ -152,14 +152,14 @@ func ConfigDefault() DataConfig {
 func ConfigReadFromFile(filename string) DataConfig {
 	filebytes, err := os.ReadFile(filename)
 	if err != nil {
-		log.Fatal("[CONFIG] Error when opening config file")
+		logger.Fatal("Error opening config file", "error", err)
 		return DataConfig{}
 	}
 
 	var payload DataConfig
 	err = json.Unmarshal(filebytes, &payload)
 	if err != nil {
-		log.Fatal("[CONFIG] Error in JSON file")
+		logger.Fatal("Error parsing JSON config", "error", err)
 		return DataConfig{}
 	}
 
@@ -173,44 +173,44 @@ func ConfigLoad() DataConfig {
 
 	_, err := os.Stat(configfile)
 	if os.IsNotExist(err) {
-		log.Println("[CONFIG] File Not Found:", configfile)
+		logger.Info("Config file not found, using defaults", "file", configfile)
 	} else {
-		log.Println("[CONFIG] File Found:", configfile)
+		logger.Info("Loading config file", "file", configfile)
 		configFile := ConfigReadFromFile(configfile)
 		errMerge := mergo.Merge(&c, configFile, mergo.WithOverride)
 		if errMerge != nil {
-			log.Println("[CONFIG] Merge Error", errMerge)
+			logger.Error("Failed to merge config", "error", errMerge)
 		}
 	}
 
 	envListen := os.Getenv("LISTEN")
 	if envListen != "" {
-		log.Println("[CONFIG] LISTEN OVERRIDE:", envListen)
+		logger.Info("Environment override for listen address", "address", envListen)
 		c.ListenAddr = envListen
 	}
 	envPort := os.Getenv("PORT")
 	if envPort != "" {
-		log.Println("[CONFIG] PORT OVERRIDE:", envPort)
+		logger.Info("Environment override for port", "port", envPort)
 		c.ListenPort = envPort
 	}
 
 	// Validate configuration
 	if err := ValidateConfig(&c); err != nil {
-		log.Fatal("[CONFIG] Validation failed: ", err)
+		logger.Fatal("Config validation failed", "error", err)
 	}
 
 	// Log security warnings
 	if c.ListenAddr == "0.0.0.0" {
-		log.Println("[CONFIG] WARNING: Server will listen on all network interfaces")
+		logger.Warn("Server will listen on all network interfaces")
 	}
 
 	// Check for unsafe CSP directives
 	for _, scriptSrc := range c.Csp.ScriptSrc {
 		if scriptSrc == "'unsafe-inline'" {
-			log.Println("[CONFIG] WARNING: 'unsafe-inline' in script-src reduces XSS protection")
+			logger.Warn("'unsafe-inline' in script-src reduces XSS protection")
 		}
 		if scriptSrc == "'unsafe-eval'" {
-			log.Println("[CONFIG] WARNING: 'unsafe-eval' in script-src allows dynamic code execution")
+			logger.Warn("'unsafe-eval' in script-src allows dynamic code execution")
 		}
 	}
 

@@ -3,7 +3,8 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"log"
+
+	"github.com/ezhttp/ezhttp/internal/logger"
 )
 
 // https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-go
@@ -13,7 +14,7 @@ func RandStringBytes(n int) string {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
-		log.Println("error generating random bytes")
+		logger.Error("error generating random bytes", "error", err)
 		return ""
 	}
 	return base64.URLEncoding.EncodeToString(b)
@@ -35,7 +36,7 @@ func RandStringCharacters(count int) string {
 		randomBytes := make([]byte, count-i)
 		_, err := rand.Read(randomBytes)
 		if err != nil {
-			log.Println("error generating random string")
+			logger.Error("error generating random string", "error", err)
 			return ""
 		}
 

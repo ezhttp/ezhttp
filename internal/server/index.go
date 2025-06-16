@@ -1,10 +1,10 @@
 package server
 
 import (
-	"log"
 	"os"
 	"strings"
 
+	"github.com/ezhttp/ezhttp/internal/logger"
 	"github.com/tdewolff/minify/v2"
 )
 
@@ -17,14 +17,14 @@ func LoadIndexCache() ([]string, error) {
 	fileString := string(fileBytes)
 	fileSplit := strings.Split(fileString, "NONCEHERE")
 	if len(fileSplit) == 1 {
-		log.Println("[INFO] No nonce field found. Use NONCEHERE in your file to use it")
+		logger.Info("No nonce field found. Use NONCEHERE in your file to use it", "nonceCount", len(fileSplit))
 	} else if len(fileSplit) == 2 {
 		// All Good
-		log.Println("[INFO] Found one nonce field")
+		logger.Info("Found one nonce field", "nonceCount", len(fileSplit))
 	} else {
 		// You probably do not need more than one nonce field
 		// If you need it, you can remove this line and/or open a PR
-		log.Println("[WARN] MORE THAN ONE NONCE FIELD FOUND")
+		logger.Warn("MORE THAN ONE NONCE FIELD FOUND", "nonceCount", len(fileSplit))
 	}
 
 	//bufio.NewScanner()
