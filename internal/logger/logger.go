@@ -9,8 +9,14 @@ import (
 var DefaultLogger *slog.Logger
 
 func init() {
+	// Set log level based on environment variable
+	level := slog.LevelInfo
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		level = slog.LevelDebug
+	}
+
 	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: level,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			// Redact sensitive information
 			switch a.Key {

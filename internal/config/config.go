@@ -58,6 +58,7 @@ type DataConfigProxy struct {
 	RelaxedOriginTLS       bool   `json:"relaxed_origin_tls"`
 	MaxIdleConns           int    `json:"max_idle_conns"`
 	IdleConnTimeout        string `json:"idle_conn_timeout"`
+	DebugMode              bool   `json:"debug_mode"`
 }
 
 func DefaultConfigCsp() DataConfigCsp {
@@ -187,6 +188,7 @@ func ConfigDefault() DataConfig {
 			RelaxedOriginTLS:       false,
 			MaxIdleConns:           100,
 			IdleConnTimeout:        "90s",
+			DebugMode:              false,
 		},
 	}
 }
@@ -258,6 +260,11 @@ func ConfigLoad() DataConfig {
 	if envProxyAuth != "" {
 		logger.Info("Environment override for proxy auth token")
 		c.Proxy.AuthToken = envProxyAuth
+	}
+	envDebugMode := os.Getenv("DEBUG_MODE")
+	if envDebugMode == "true" {
+		logger.Info("Debug mode enabled")
+		c.Proxy.DebugMode = true
 	}
 
 	// Validate configuration

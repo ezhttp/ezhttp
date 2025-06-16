@@ -18,6 +18,7 @@ type Handler struct {
 	targetURL *url.URL
 	transport *http.Transport
 	config    *config.DataConfigProxy
+	debugMode bool
 }
 
 // Creates a new proxy handler
@@ -34,6 +35,7 @@ func NewHandler(cfg *config.DataConfigProxy) (*Handler, error) {
 	h := &Handler{
 		targetURL: targetURL,
 		config:    cfg,
+		debugMode: cfg.DebugMode,
 	}
 
 	// Create transport with security settings
@@ -102,6 +104,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Log the request
 	clientIP := ratelimit.ExtractIP(r.RemoteAddr)
 
+	// Debug logging for incoming request
+	if h.debugMode {
+		logger.Debug("Incoming proxy request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"query", r.URL.RawQuery,
+			"ip", clientIP,
+			"headers", fmt.Sprintf("%v", r.Header))
+	}
+
 	// Create new request for backend
 	targetURL := *h.targetURL
 	targetURL.Path = r.URL.Path
@@ -137,6 +149,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxyReq.Header.Set("X-Forwarded-Host", r.Host)
 	proxyReq.Header.Set("X-Real-IP", r.RemoteAddr)
 
+	// Debug logging for outgoing request
+	if h.debugMode {
+		logger.Debug("Outgoing backend request",
+			"method", proxyReq.Method,
+			"url", targetURL.String(),
+			"headers", fmt.Sprintf("%v", proxyReq.Header))
+	}
+
 	// Send request to backend
 	resp, err := h.transport.RoundTrip(proxyReq)
 	if err != nil {
@@ -145,6 +165,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+
+	// Debug logging for backend response
+	if h.debugMode {
+		logger.Debug("Backend response",
+			"status", resp.StatusCode,
+			"headers", fmt.Sprintf("%v", resp.Header))
+	}
 
 	// Copy response headers
 	copyHeaders(w.Header(), resp.Header)
@@ -155,7 +182,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 
 	// Copy response body
-	_, err = io.Copy(w, resp.Body)
+	if h.debugMode {
+		// In debug mode, capture and log response body (limited to first 1KB)
+		var buf [1024]byte
+		n, _ := resp.Body.Read(buf[:])
+		if n > 0 {
+			logger.Debug("Response body preview",
+				"size", n,
+				"content", string(buf[:n]))
+			// Write what we read
+			w.Write(buf[:n])
+		}
+		// Copy the rest
+		_, err = io.Copy(w, resp.Body)
+	} else {
+		// Normal mode - just copy
+		_, err = io.Copy(w, resp.Body)
+	}
 	if err != nil {
 		logger.Error("Failed to copy response body", "error", err)
 	}
